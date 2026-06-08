@@ -131,24 +131,53 @@ main {
     pointer-events: none;
 }
 
-.listening ~ .mic-ring {
+.listening~.mic-ring {
     border-color: var(--danger);
     animation: ring-pulse 2s infinite cubic-bezier(0.215, 0.61, 0.355, 1);
 }
 
-.listening ~ .ring-1 { width: 100px; height: 100px; animation-delay: 0s; }
-.listening ~ .ring-2 { width: 140px; height: 140px; animation-delay: 0.4s; }
-.listening ~ .ring-3 { width: 180px; height: 180px; animation-delay: 0.8s; }
+.listening~.ring-1 {
+    width: 100px;
+    height: 100px;
+    animation-delay: 0s;
+}
+
+.listening~.ring-2 {
+    width: 140px;
+    height: 140px;
+    animation-delay: 0.4s;
+}
+
+.listening~.ring-3 {
+    width: 180px;
+    height: 180px;
+    animation-delay: 0.8s;
+}
 
 @keyframes ring-pulse {
-    0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0.8; }
-    100% { transform: translate(-50%, -50%) scale(1.2); opacity: 0; }
+    0% {
+        transform: translate(-50%, -50%) scale(0.5);
+        opacity: 0.8;
+    }
+
+    100% {
+        transform: translate(-50%, -50%) scale(1.2);
+        opacity: 0;
+    }
 }
 
 @keyframes pulse-danger {
-    0% { transform: scale(1); }
-    50% { transform: scale(1.05); }
-    100% { transform: scale(1); }
+    0% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.05);
+    }
+
+    100% {
+        transform: scale(1);
+    }
 }
 
 /* Status Panel */
@@ -177,7 +206,7 @@ main {
 
 .transcript.active {
     color: var(--text-primary);
-    border-color: rgba(255,255,255,0.3);
+    border-color: rgba(255, 255, 255, 0.3);
 }
 
 /* Result Card */
@@ -201,7 +230,9 @@ main {
     border-bottom: 1px solid var(--surface-border);
 }
 
-.text-success { color: var(--success); }
+.text-success {
+    color: var(--success);
+}
 
 .result-data {
     display: flex;
@@ -215,12 +246,25 @@ main {
     font-size: 0.9rem;
 }
 
-.data-label { color: var(--text-secondary); }
-.data-value { font-weight: 500; text-align: right; }
+.data-label {
+    color: var(--text-secondary);
+}
+
+.data-value {
+    font-weight: 500;
+    text-align: right;
+}
 
 @keyframes slideUp {
-    from { opacity: 0; transform: translateY(20px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 /* Modal */
@@ -276,9 +320,12 @@ main {
     font-weight: 500;
 }
 
-.required { color: var(--danger); }
+.required {
+    color: var(--danger);
+}
 
-.form-group input, .form-group textarea {
+.form-group input,
+.form-group textarea {
     width: 100%;
     background: rgba(15, 23, 42, 0.5);
     border: 1px solid var(--surface-border);
@@ -290,7 +337,8 @@ main {
     transition: border-color 0.2s;
 }
 
-.form-group input:focus, .form-group textarea:focus {
+.form-group input:focus,
+.form-group textarea:focus {
     outline: none;
     border-color: var(--accent-color);
 }
@@ -337,7 +385,7 @@ main {
     font-weight: 500;
     z-index: 1000;
     transition: all 0.3s ease;
-    box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
 }
 
 .toast.hidden {
@@ -347,4 +395,55 @@ main {
 }
 
 /* Utility */
-.hidden { display: none !important; }
+.hidden {
+    display: none !important;
+}
+
+/* Text Input */
+.text-input-container {
+    width: 100%;
+    display: flex;
+    gap: 12px;
+    margin-top: 10px;
+    margin-bottom: 20px;
+}
+
+.text-input-container input {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--surface-border);
+    color: white;
+    padding: 16px 20px;
+    border-radius: 24px;
+    font-family: inherit;
+    font-size: 1rem;
+    backdrop-filter: blur(10px);
+    transition: border-color 0.2s;
+}
+
+.text-input-container input:focus {
+    outline: none;
+    border-color: var(--accent-color);
+}
+
+.send-btn {
+    background: var(--accent-color);
+    color: white;
+    border-radius: 50%;
+    width: 52px;
+    height: 52px;
+    min-width: 52px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-shadow: 0 4px 12px var(--accent-glow);
+}
+
+.send-btn:hover {
+    background: var(--accent-hover);
+    color: white;
+    transform: translateY(-2px);
+}
+.send-btn:active {
+    transform: translateY(0);
+}

@@ -10,9 +10,11 @@ const toast = document.getElementById('toast');
 const toastMessage = document.getElementById('toastMessage');
 const resultCard = document.getElementById('resultCard');
 const resultData = document.getElementById('resultData');
+const textInput = document.getElementById('textInput');
+const btnSendText = document.getElementById('btnSendText');
 
 // Settings Inputs
-const inputOpenaiKey = document.getElementById('openaiKey');
+const inputGeminiKey = document.getElementById('geminiKey');
 const inputGasUrl = document.getElementById('gasUrl');
 const inputSystemPrompt = document.getElementById('systemPrompt');
 
@@ -20,9 +22,9 @@ const inputSystemPrompt = document.getElementById('systemPrompt');
 let isListening = false;
 let recognition = null;
 let settings = {
-    openaiKey: '',
+    geminiKey: '',
     gasUrl: '',
-    systemPrompt: 'Bạn là một trợ lý ảo giúp trích xuất thông tin chi tiêu. Hãy trả về ĐÚNG một chuỗi JSON gồm các trường: "date" (dd/mm/yyyy), "amount" (số), "category" (phân loại), "note" (ghi chú). Không giải thích gì thêm.'
+    systemPrompt: 'Bạn là trợ lý trích xuất dữ liệu chi tiêu.\nNhiệm vụ: Đọc và xác định các thông tin sau:\n- food: Tên món ăn hoặc đồ uống\n- total_amount: Tổng số tiền (dạng số)\n- people_count: Số người tham gia (dạng số)\n\nYêu cầu: Chỉ trả về JSON hợp lệ, không giải thích thêm.\nĐịnh dạng:\n{\n  "food": "Tên món ăn",\n  "total_amount": 0,\n  "people_count": 0\n}'
 };
 
 // Initialize
@@ -37,19 +39,21 @@ function loadSettings() {
     if (saved) {
         settings = { ...settings, ...JSON.parse(saved) };
     }
-    inputOpenaiKey.value = settings.openaiKey;
-    inputGasUrl.value = settings.gasUrl;
-    inputSystemPrompt.value = settings.systemPrompt;
+    inputGeminiKey.value = settings.geminiKey || '';
+    inputGasUrl.value = settings.gasUrl || '';
+    inputSystemPrompt.value = settings.systemPrompt || '';
 }
 
-function saveSettings() {
-    settings.openaiKey = inputOpenaiKey.value.trim();
+function saveSettings(silent = false) {
+    settings.geminiKey = inputGeminiKey.value.trim();
     settings.gasUrl = inputGasUrl.value.trim();
     settings.systemPrompt = inputSystemPrompt.value.trim();
     localStorage.setItem('sheetAiSettings', JSON.stringify(settings));
-    
-    settingsModal.classList.add('hidden');
-    showToast('Đã lưu cài đặt');
+
+    if (silent !== true) {
+        settingsModal.classList.add('hidden');
+        showToast('Đã lưu cài đặt');
+    }
 }
 
 function showToast(msg) {
@@ -94,7 +98,7 @@ function initSpeechRecognition() {
                 interimTranscript += event.results[i][0].transcript;
             }
         }
-        
+
         transcriptText.textContent = finalTranscript || interimTranscript;
     };
 
@@ -122,15 +126,15 @@ function initSpeechRecognition() {
 }
 
 function startListening() {
-    if (!settings.openaiKey || !settings.gasUrl) {
+    if (!settings.geminiKey || !settings.gasUrl) {
         showToast('Vui lòng cấu hình API Key và Webhook URL trước.');
         settingsModal.classList.remove('hidden');
         return;
     }
-    
+
     try {
         recognition.start();
-    } catch(e) {
+    } catch (e) {
         // Recognition already started
     }
 }
@@ -140,7 +144,7 @@ function stopListening() {
     btnMic.classList.remove('listening');
     try {
         recognition.stop();
-    } catch(e) {}
+    } catch (e) { }
 }
 
 function toggleListening() {
@@ -151,50 +155,55 @@ function toggleListening() {
     }
 }
 
-// Process Data with OpenAI
+// Process Data with Gemini
 async function processVoiceCommand(text) {
     statusTitle.textContent = 'Đang xử lý AI...';
-    
+
     try {
-        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${settings.geminiKey}`, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${settings.openaiKey}`
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                model: "gpt-4o-mini", // Cost effective model
-                messages: [
-                    { role: "system", content: settings.systemPrompt },
-                    { role: "user", content: text }
-                ],
-                temperature: 0.1,
-                response_format: { type: "json_object" }
+                systemInstruction: {
+                    parts: [{ text: settings.systemPrompt }]
+                },
+                contents: [{
+                    parts: [{ text: text }]
+                }],
+                generationConfig: {
+                    temperature: 0.1,
+                    responseMimeType: "application/json"
+                }
             })
         });
 
         if (!response.ok) {
             const err = await response.json();
-            throw new Error(err.error?.message || 'Lỗi từ OpenAI API');
+            throw new Error(err.error?.message || 'Lỗi từ Gemini API');
         }
 
         const data = await response.json();
-        const jsonContent = data.choices[0].message.content;
+        const jsonContent = data.candidates[0].content.parts[0].text;
         const parsedData = JSON.parse(jsonContent);
-        
+
         await sendToGoogleSheets(parsedData);
-        
+
     } catch (error) {
         console.error(error);
-        statusTitle.textContent = 'Xử lý thất bại';
-        showToast(error.message);
+        statusTitle.textContent = 'AI lỗi, đang lưu thô...';
+        showToast('AI lỗi/quá tải, tự động lưu nguyên văn bản.');
+        
+        // Fallback: Send raw text to sheet
+        await sendToGoogleSheets({ raw_text: text });
     }
 }
 
 // Send to Google Sheets
 async function sendToGoogleSheets(data) {
     statusTitle.textContent = 'Đang lưu vào Sheet...';
-    
+
     try {
         // Google Apps Script requires no-cors for POST usually, or JSONP, but we can do a simple POST
         // Make sure your GAS Web app is deployed to be accessible to "Anyone"
@@ -210,11 +219,11 @@ async function sendToGoogleSheets(data) {
         // with no-cors we can't read the response properly, but we assume success if no fetch error
         statusTitle.textContent = 'Hoàn tất!';
         showResult(data);
-        
+
         setTimeout(() => {
             if (!isListening) statusTitle.textContent = 'Chạm để nói';
         }, 3000);
-        
+
     } catch (error) {
         console.error(error);
         statusTitle.textContent = 'Lỗi lưu dữ liệu';
@@ -224,19 +233,23 @@ async function sendToGoogleSheets(data) {
 
 function showResult(data) {
     resultData.innerHTML = '';
-    
+
     for (const [key, value] of Object.entries(data)) {
         // Simple translation for common keys
         const labels = {
+            'food': 'Món ăn',
+            'total_amount': 'Tổng tiền',
+            'people_count': 'Số người',
+            'raw_text': 'Nội dung thô',
             'date': 'Ngày',
             'amount': 'Số tiền',
             'category': 'Danh mục',
             'note': 'Ghi chú'
         };
         const label = labels[key] || key;
-        
+
         let displayValue = value;
-        if (key === 'amount' && !isNaN(value)) {
+        if ((key === 'amount' || key === 'total_amount') && !isNaN(value) && value !== null) {
             displayValue = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
         }
 
@@ -247,7 +260,7 @@ function showResult(data) {
             </div>
         `;
     }
-    
+
     resultCard.classList.remove('hidden');
 }
 
@@ -256,14 +269,43 @@ function setupEventListeners() {
     btnMic.addEventListener('click', toggleListening);
     btnSettings.addEventListener('click', () => settingsModal.classList.remove('hidden'));
     btnCloseSettings.addEventListener('click', () => settingsModal.classList.add('hidden'));
-    btnSaveSettings.addEventListener('click', saveSettings);
-    
+    btnSaveSettings.addEventListener('click', () => saveSettings(false));
+
+    // Auto-save settings to prevent cache loss
+    inputGeminiKey.addEventListener('input', () => saveSettings(true));
+    inputGasUrl.addEventListener('input', () => saveSettings(true));
+    inputSystemPrompt.addEventListener('input', () => saveSettings(true));
+
+    // Text input events
+    btnSendText.addEventListener('click', sendTextInput);
+    textInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            sendTextInput();
+        }
+    });
+
     // Close modal on outside click
     settingsModal.addEventListener('click', (e) => {
         if (e.target === settingsModal) {
             settingsModal.classList.add('hidden');
         }
     });
+}
+
+function sendTextInput() {
+    const text = textInput.value.trim();
+    if (text) {
+        transcriptText.textContent = text;
+        transcriptText.classList.add('active');
+        textInput.value = '';
+
+        if (!settings.geminiKey || !settings.gasUrl) {
+            showToast('Vui lòng cấu hình API Key và Webhook URL trước.');
+            settingsModal.classList.remove('hidden');
+            return;
+        }
+        processVoiceCommand(text);
+    }
 }
 
 // Run

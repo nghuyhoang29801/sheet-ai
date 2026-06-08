@@ -46,6 +46,13 @@
                     <!-- Data will be populated here -->
                 </div>
             </div>
+
+            <div class="text-input-container">
+                <input type="text" id="textInput" placeholder="Hoặc nhập văn bản vào đây...">
+                <button id="btnSendText" class="icon-btn send-btn" aria-label="Gửi">
+                    <i class="fa-solid fa-paper-plane"></i>
+                </button>
+            </div>
         </main>
 
         <!-- Settings Modal -->
@@ -59,9 +66,9 @@
                 </div>
                 <div class="modal-body">
                     <div class="form-group">
-                        <label for="openaiKey">OpenAI API Key <span class="required">*</span></label>
-                        <input type="password" id="openaiKey" placeholder="sk-...">
-                        <small>Được lưu trữ cục bộ trên trình duyệt của bạn.</small>
+                        <label for="geminiKey">Gemini API Key <span class="required">*</span></label>
+                        <input type="password" id="geminiKey" placeholder="AIzaSy...">
+                        <small>Lấy key miễn phí tại Google AI Studio.</small>
                     </div>
                     <div class="form-group">
                         <label for="gasUrl">Google Apps Script Web App URL <span class="required">*</span></label>
@@ -69,7 +76,19 @@
                     </div>
                     <div class="form-group">
                         <label for="systemPrompt">System Prompt (Tùy chỉnh)</label>
-                        <textarea id="systemPrompt" rows="4">Bạn là một trợ lý ảo giúp trích xuất thông tin chi tiêu. Hãy trả về ĐÚNG một chuỗi JSON gồm các trường: "date" (dd/mm/yyyy), "amount" (số), "category" (phân loại), "note" (ghi chú). Không giải thích gì thêm.</textarea>
+                        <textarea id="systemPrompt" rows="8">Bạn là trợ lý trích xuất dữ liệu chi tiêu.
+Nhiệm vụ: Đọc và xác định các thông tin sau:
+- food: Tên món ăn hoặc đồ uống
+- total_amount: Tổng số tiền (dạng số)
+- people_count: Số người tham gia (dạng số)
+
+Yêu cầu: Chỉ trả về JSON hợp lệ, không giải thích thêm.
+Định dạng:
+{
+  "food": "Tên món ăn",
+  "total_amount": 0,
+  "people_count": 0
+}</textarea>
                     </div>
                 </div>
                 <div class="modal-footer">
