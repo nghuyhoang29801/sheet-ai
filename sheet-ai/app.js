@@ -24,7 +24,7 @@ let recognition = null;
 let settings = {
     geminiKey: '',
     gasUrl: '',
-    systemPrompt: 'Bạn là trợ lý trích xuất dữ liệu chi tiêu.\nNhiệm vụ: Đọc và xác định các thông tin sau:\n- food: Tên món ăn hoặc đồ uống\n- total_amount: Tổng số tiền (dạng số)\n- people_count: Số người tham gia (dạng số)\n\nYêu cầu: Chỉ trả về JSON hợp lệ, không giải thích thêm.\nĐịnh dạng:\n{\n  "food": "Tên món ăn",\n  "total_amount": 0,\n  "people_count": 0\n}'
+    systemPrompt: 'Bạn là trợ lý ghi log.\nNhiệm vụ: Ghi lại thông tin mà tôi đọc\n chưa có định dạng'
 };
 
 // Initialize
@@ -194,7 +194,7 @@ async function processVoiceCommand(text) {
         console.error(error);
         statusTitle.textContent = 'AI lỗi, đang lưu thô...';
         showToast('AI lỗi/quá tải, tự động lưu nguyên văn bản.');
-        
+
         // Fallback: Send raw text to sheet
         await sendToGoogleSheets({ raw_text: text });
     }

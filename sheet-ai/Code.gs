@@ -60,9 +60,7 @@ function doPost(e) {
 
   let logText = "";
   if (body.raw_text) {
-    logText = `[${new Date().toLocaleString('vi-VN')}] Nội dung thô: ${body.raw_text}`;
-  } else {
-    logText = `[${new Date().toLocaleString('vi-VN')}] Món ăn: ${body.food || "Trống"} | Tổng tiền: ${body.total_amount || 0} | Số người: ${body.people_count || 0}`;
+    logText = `[${new Date().toLocaleString('vi-VN')}]: ${body.raw_text}`;
   }
 
   sheet.appendRow([logText]);
