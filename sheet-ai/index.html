@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Sheet AI - Voice Expense Tracker</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header>
+            <div class="logo">
+                <i class="fa-solid fa-microphone-lines"></i>
+                <span>Sheet AI</span>
+            </div>
+            <button id="btnSettings" class="icon-btn" aria-label="Settings">
+                <i class="fa-solid fa-gear"></i>
+            </button>
+        </header>
+
+        <!-- Main Content -->
+        <main>
+            <div class="mic-container">
+                <button id="btnMic" class="mic-btn">
+                    <i class="fa-solid fa-microphone"></i>
+                </button>
+                <div class="mic-ring ring-1"></div>
+                <div class="mic-ring ring-2"></div>
+                <div class="mic-ring ring-3"></div>
+            </div>
+
+            <div class="status-panel">
+                <h2 id="statusTitle">Chạm để nói</h2>
+                <p id="transcriptText" class="transcript">Dữ liệu của bạn sẽ được xử lý bằng AI và gửi đến Google Sheets.</p>
+            </div>
+
+            <div id="resultCard" class="result-card hidden">
+                <div class="result-header">
+                    <i class="fa-solid fa-check-circle text-success"></i>
+                    <span>Đã lưu thành công</span>
+                </div>
+                <div id="resultData" class="result-data">
+                    <!-- Data will be populated here -->
+                </div>
+            </div>
+        </main>
+
+        <!-- Settings Modal -->
+        <div id="settingsModal" class="modal hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Cài đặt</h2>
+                    <button id="btnCloseSettings" class="icon-btn">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="openaiKey">OpenAI API Key <span class="required">*</span></label>
+                        <input type="password" id="openaiKey" placeholder="sk-...">
+                        <small>Được lưu trữ cục bộ trên trình duyệt của bạn.</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="gasUrl">Google Apps Script Web App URL <span class="required">*</span></label>
+                        <input type="text" id="gasUrl" placeholder="https://script.google.com/macros/s/...">
+                    </div>
+                    <div class="form-group">
+                        <label for="systemPrompt">System Prompt (Tùy chỉnh)</label>
+                        <textarea id="systemPrompt" rows="4">Bạn là một trợ lý ảo giúp trích xuất thông tin chi tiêu. Hãy trả về ĐÚNG một chuỗi JSON gồm các trường: "date" (dd/mm/yyyy), "amount" (số), "category" (phân loại), "note" (ghi chú). Không giải thích gì thêm.</textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button id="btnSaveSettings" class="primary-btn">Lưu cấu hình</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Toast Notification -->
+        <div id="toast" class="toast hidden">
+            <span id="toastMessage"></span>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
