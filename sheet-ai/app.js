@@ -37,8 +37,8 @@ const DEFAULT_PROFILE = {
     geminiKey: '',
     groqKey: '1',
     gasUrl: 'https://script.google.com/macros/s/AKfycbzD9HF48vUdK4nTv9WjbPUHZwTmFAayBTCxJATGTdvELLHlkfbt5yxwRwfkRTn16RLW1A/exec',
-    rawOnly: true,
-    systemPrompt: 'Bạn là trợ lý ghi log.\nNhiệm vụ: Ghi lại thông tin mà tôi đọc\n chưa có định dạng'
+    rawOnly: false,
+    systemPrompt: 'Chỉ trả về DUY NHẤT một JSON hợp lệ với cấu trúc:\n\n{\n"food": "",\n"total_amount": 0,\n"people_count": 0 \n}'
 };
 
 function loadProfiles() {
