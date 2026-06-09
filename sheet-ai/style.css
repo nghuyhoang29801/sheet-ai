@@ -320,6 +320,20 @@ main {
     font-weight: 500;
 }
 
+.toggle-label {
+    display: flex !important;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    margin-bottom: 0 !important;
+}
+
+.toggle-label input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
+
 .required {
     color: var(--danger);
 }

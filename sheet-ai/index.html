@@ -83,38 +83,46 @@
                     </div>
 
                     <div class="form-group">
-                        <label for="aiProvider">AI Provider</label>
-                        <select id="aiProvider" class="form-control">
-                            <option value="gemini">Google Gemini (Free)</option>
-                            <option value="groq">Groq (Llama 3)</option>
-                        </select>
-                    </div>
-                    <div class="form-group" id="groupGemini">
-                        <label for="geminiKey">Gemini API Key <span class="required">*</span></label>
-                        <input type="password" id="geminiKey" placeholder="AIzaSy...">
-                        <small>Lấy key miễn phí tại Google AI Studio.</small>
-                    </div>
-                    <div class="form-group hidden" id="groupGroq">
-                        <label for="groqKey">Groq API Key <span class="required">*</span></label>
-                        <input type="password" id="groqKey" placeholder="gsk_...">
-                        <small>Lấy key miễn phí tại console.groq.com.</small>
-                    </div>
-                    <div class="form-group">
                         <label for="gasUrl">Apps Script Web App URL <span class="required">*</span></label>
                         <input type="text" id="gasUrl" placeholder="https://script.google.com/macros/s/...">
                     </div>
+
                     <div class="form-group">
-                        <label><input type="checkbox" id="rawOnly"> Chỉ lưu thông tin thô (bỏ qua AI)</label>
+                        <label class="toggle-label">
+                            <input type="checkbox" id="useAI" checked>
+                            <span>Sử dụng AI</span>
+                        </label>
                     </div>
-                    <div class="form-group">
-                        <label for="systemPrompt">System Prompt</label>
-                        <textarea id="systemPrompt" rows="6">Bạn là trợ lý ghi log.
+
+                    <div id="aiSection">
+                        <div class="form-group">
+                            <label for="aiProvider">AI Provider</label>
+                            <select id="aiProvider" class="form-control">
+                                <option value="groq">Groq (Llama 3)</option>
+                                <option value="gemini">Google Gemini (Free)</option>
+                            </select>
+                        </div>
+                        <div class="form-group hidden" id="groupGemini">
+                            <label for="geminiKey">Gemini API Key <span class="required">*</span></label>
+                            <input type="password" id="geminiKey" placeholder="AIzaSy...">
+                            <small>Lấy key miễn phí tại Google AI Studio.</small>
+                        </div>
+                        <div class="form-group" id="groupGroq">
+                            <label for="groqKey">Groq API Key <span class="required">*</span></label>
+                            <input type="password" id="groqKey" placeholder="gsk_...">
+                            <small>Lấy key miễn phí tại console.groq.com.</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="systemPrompt">System Prompt</label>
+                            <textarea id="systemPrompt" rows="6">Bạn là trợ lý ghi log.
 Nhiệm vụ: Ghi lại thông tin mà tôi đọc
  chưa có định dạng</textarea>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
                     <button id="btnDeleteProfile" class="danger-btn">Xoá profile</button>
+                    <button id="btnClearCache" class="danger-btn" title="Xoá toàn bộ dữ liệu và về mặc định">Reset</button>
                     <button id="btnSaveSettings" class="primary-btn">Lưu</button>
                 </div>
             </div>

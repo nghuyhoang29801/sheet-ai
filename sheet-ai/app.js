@@ -7,6 +7,7 @@ const btnCloseSettings = document.getElementById('btnCloseSettings');
 const settingsModal = document.getElementById('settingsModal');
 const btnSaveSettings = document.getElementById('btnSaveSettings');
 const btnDeleteProfile = document.getElementById('btnDeleteProfile');
+const btnClearCache = document.getElementById('btnClearCache');
 const btnAddProfile = document.getElementById('btnAddProfile');
 const profileList = document.getElementById('profileList');
 const toast = document.getElementById('toast');
@@ -23,9 +24,10 @@ const groupGroq = document.getElementById('groupGroq');
 const inputGeminiKey = document.getElementById('geminiKey');
 const inputGroqKey = document.getElementById('groqKey');
 const inputGasUrl = document.getElementById('gasUrl');
-const inputRawOnly = document.getElementById('rawOnly');
+const inputUseAI = document.getElementById('useAI');
 const inputSystemPrompt = document.getElementById('systemPrompt');
 const inputProfileName = document.getElementById('profileName');
+const aiSection = document.getElementById('aiSection');
 
 // --- Profile Management ---
 const STORAGE_KEY = 'sheetAiProfiles';
@@ -37,7 +39,7 @@ const DEFAULT_PROFILE = {
     geminiKey: '',
     groqKey: '1',
     gasUrl: 'https://script.google.com/macros/s/AKfycbzD9HF48vUdK4nTv9WjbPUHZwTmFAayBTCxJATGTdvELLHlkfbt5yxwRwfkRTn16RLW1A/exec',
-    rawOnly: false,
+    useAI: true,
     systemPrompt: 'Chỉ trả về DUY NHẤT một JSON hợp lệ với cấu trúc:\n\n{\n"food": "",\n"total_amount": 0,\n"people_count": 0 \n}'
 };
 
@@ -105,11 +107,11 @@ function renderProfileList() {
 function loadProfileToForm(profile) {
     isLoadingProfile = true;
     inputProfileName.value = profile.name || '';
-    selectAiProvider.value = profile.aiProvider || 'gemini';
+    selectAiProvider.value = profile.aiProvider || 'groq';
     inputGeminiKey.value = profile.geminiKey || '';
     inputGroqKey.value = profile.groqKey || '';
     inputGasUrl.value = profile.gasUrl || '';
-    inputRawOnly.checked = profile.rawOnly || false;
+    inputUseAI.checked = profile.useAI !== false;
     inputSystemPrompt.value = profile.systemPrompt || '';
     toggleProviderUI();
     isLoadingProfile = false;
@@ -129,7 +131,7 @@ function saveCurrentProfile(silent = false) {
         geminiKey: inputGeminiKey.value.trim(),
         groqKey: inputGroqKey.value.trim(),
         gasUrl: inputGasUrl.value.trim(),
-        rawOnly: inputRawOnly.checked,
+        useAI: inputUseAI.checked,
         systemPrompt: inputSystemPrompt.value.trim()
     };
 
@@ -165,12 +167,16 @@ function deleteCurrentProfile() {
 }
 
 function toggleProviderUI() {
-    if (selectAiProvider.value === 'gemini') {
-        groupGemini.classList.remove('hidden');
-        groupGroq.classList.add('hidden');
-    } else {
-        groupGemini.classList.add('hidden');
-        groupGroq.classList.remove('hidden');
+    const useAI = inputUseAI.checked;
+    aiSection.classList.toggle('hidden', !useAI);
+    if (useAI) {
+        if (selectAiProvider.value === 'gemini') {
+            groupGemini.classList.remove('hidden');
+            groupGroq.classList.add('hidden');
+        } else {
+            groupGemini.classList.add('hidden');
+            groupGroq.classList.remove('hidden');
+        }
     }
 }
 
@@ -234,8 +240,8 @@ function initSpeechRecognition() {
 
 function startListening() {
     const profile = getActiveProfile();
-    if ((!profile.rawOnly && !profile.geminiKey && profile.aiProvider === 'gemini') ||
-        (!profile.rawOnly && !profile.groqKey && profile.aiProvider === 'groq') ||
+    if ((profile.useAI && !profile.geminiKey && profile.aiProvider === 'gemini') ||
+        (profile.useAI && !profile.groqKey && profile.aiProvider === 'groq') ||
         !profile.gasUrl) {
         showToast('Vui lòng cấu hình API Key và GAS URL trước.');
         settingsModal.classList.remove('hidden');
@@ -258,7 +264,7 @@ function toggleListening() {
 async function processInput(text) {
     const profile = getActiveProfile();
 
-    if (profile.rawOnly) {
+    if (!profile.useAI) {
         await sendToGoogleSheets({ raw_text: text }, profile.gasUrl);
         return;
     }
@@ -358,13 +364,21 @@ function setupEventListeners() {
     btnCloseSettings.addEventListener('click', () => settingsModal.classList.add('hidden'));
     btnSaveSettings.addEventListener('click', () => saveCurrentProfile(false));
     btnDeleteProfile.addEventListener('click', deleteCurrentProfile);
+    btnClearCache.addEventListener('click', () => {
+        if (!confirm('Xoá toàn bộ dữ liệu và về mặc định?')) return;
+        localStorage.removeItem(STORAGE_KEY);
+        localStorage.removeItem(ACTIVE_KEY);
+        renderProfileList();
+        loadProfileToForm(getActiveProfile());
+        showToast('Đã reset về mặc định');
+    });
     btnAddProfile.addEventListener('click', addNewProfile);
 
     selectAiProvider.addEventListener('change', () => { toggleProviderUI(); saveCurrentProfile(true); });
     [inputProfileName, inputGeminiKey, inputGroqKey, inputGasUrl, inputSystemPrompt].forEach(el =>
         el.addEventListener('input', () => saveCurrentProfile(true))
     );
-    inputRawOnly.addEventListener('change', () => saveCurrentProfile(true));
+    inputUseAI.addEventListener('change', () => { toggleProviderUI(); saveCurrentProfile(true); });
 
     btnSendText.addEventListener('click', sendTextInput);
     textInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendTextInput(); });
@@ -381,8 +395,8 @@ function sendTextInput() {
     transcriptText.textContent = text;
     transcriptText.classList.add('active');
     textInput.value = '';
-    if ((!profile.rawOnly && !profile.geminiKey && profile.aiProvider === 'gemini') ||
-        (!profile.rawOnly && !profile.groqKey && profile.aiProvider === 'groq') ||
+    if ((profile.useAI && !profile.geminiKey && profile.aiProvider === 'gemini') ||
+        (profile.useAI && !profile.groqKey && profile.aiProvider === 'groq') ||
         !profile.gasUrl) {
         showToast('Vui lòng cấu hình API Key và GAS URL trước.');
         settingsModal.classList.remove('hidden');
