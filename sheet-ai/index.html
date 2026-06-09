@@ -69,13 +69,33 @@
                 </div>
                 <div class="modal-body">
                     <div class="form-group">
+                        <label for="aiProvider">AI Provider</label>
+                        <select id="aiProvider" class="form-control">
+                            <option value="gemini">Google Gemini (Free)</option>
+                            <option value="groq">Groq (Llama 3)</option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="groupGemini">
                         <label for="geminiKey">Gemini API Key <span class="required">*</span></label>
                         <input type="password" id="geminiKey" placeholder="AIzaSy...">
                         <small>Lấy key miễn phí tại Google AI Studio.</small>
                     </div>
+                    <div class="form-group hidden" id="groupGroq">
+                        <label for="groqKey">Groq API Key <span class="required">*</span></label>
+                        <input type="password" id="groqKey" placeholder="gsk_...">
+                        <small>Lấy key miễn phí tại console.groq.com.</small>
+                    </div>
                     <div class="form-group">
                         <label for="gasUrl">Google Apps Script Web App URL <span class="required">*</span></label>
                         <input type="text" id="gasUrl" placeholder="https://script.google.com/macros/s/...">
+                    </div>
+                    <div class="form-group">
+                        <label for="gasUrlRaw">GAS URL lưu thô (tùy chọn)</label>
+                        <input type="text" id="gasUrlRaw" placeholder="https://script.google.com/macros/s/...">
+                        <small>Nếu có, raw_text sẽ được gửi thêm đến URL này.</small>
+                    </div>
+                    <div class="form-group">
+                        <label><input type="checkbox" id="rawOnly"> Chỉ lưu thông tin thô (bỏ qua AI)</label>
                     </div>
                     <div class="form-group">
                         <label for="systemPrompt">System Prompt (Tùy chỉnh)</label>

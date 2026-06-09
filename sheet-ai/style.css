@@ -325,7 +325,8 @@ main {
 }
 
 .form-group input,
-.form-group textarea {
+.form-group textarea,
+.form-group select {
     width: 100%;
     background: rgba(15, 23, 42, 0.5);
     border: 1px solid var(--surface-border);

@@ -58,12 +58,13 @@ function doPost(e) {
   const body =
     JSON.parse(e.postData.contents);
 
-  let logText = "";
-  if (body.raw_text) {
-    logText = `[${new Date().toLocaleString('vi-VN')}]: ${body.raw_text}`;
-  }
-
-  sheet.appendRow([logText]);
+  // Lưu vào nhiều cột (A, B, C, D...)
+  sheet.appendRow([
+    new Date(),
+    body.food || body.raw_text || "",
+    body.total_amount || "",
+    body.people_count || ""
+  ]);
 
   return ContentService
     .createTextOutput(

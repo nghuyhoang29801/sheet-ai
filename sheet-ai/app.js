@@ -14,16 +14,26 @@ const textInput = document.getElementById('textInput');
 const btnSendText = document.getElementById('btnSendText');
 
 // Settings Inputs
+const selectAiProvider = document.getElementById('aiProvider');
+const groupGemini = document.getElementById('groupGemini');
+const groupGroq = document.getElementById('groupGroq');
 const inputGeminiKey = document.getElementById('geminiKey');
+const inputGroqKey = document.getElementById('groqKey');
 const inputGasUrl = document.getElementById('gasUrl');
+const inputGasUrlRaw = document.getElementById('gasUrlRaw');
+const inputRawOnly = document.getElementById('rawOnly');
 const inputSystemPrompt = document.getElementById('systemPrompt');
 
 // State
 let isListening = false;
 let recognition = null;
 let settings = {
+    aiProvider: 'gemini',
     geminiKey: '',
+    groqKey: '',
     gasUrl: '',
+    gasUrlRaw: '',
+    rawOnly: false,
     systemPrompt: 'Bạn là trợ lý ghi log.\nNhiệm vụ: Ghi lại thông tin mà tôi đọc\n chưa có định dạng'
 };
 
@@ -39,20 +49,39 @@ function loadSettings() {
     if (saved) {
         settings = { ...settings, ...JSON.parse(saved) };
     }
+    selectAiProvider.value = settings.aiProvider || 'gemini';
     inputGeminiKey.value = settings.geminiKey || '';
+    inputGroqKey.value = settings.groqKey || '';
     inputGasUrl.value = settings.gasUrl || '';
+    inputGasUrlRaw.value = settings.gasUrlRaw || '';
+    inputRawOnly.checked = settings.rawOnly || false;
     inputSystemPrompt.value = settings.systemPrompt || '';
+    toggleProviderUI();
 }
 
 function saveSettings(silent = false) {
+    settings.aiProvider = selectAiProvider.value;
     settings.geminiKey = inputGeminiKey.value.trim();
+    settings.groqKey = inputGroqKey.value.trim();
     settings.gasUrl = inputGasUrl.value.trim();
+    settings.gasUrlRaw = inputGasUrlRaw.value.trim();
+    settings.rawOnly = inputRawOnly.checked;
     settings.systemPrompt = inputSystemPrompt.value.trim();
     localStorage.setItem('sheetAiSettings', JSON.stringify(settings));
 
     if (silent !== true) {
         settingsModal.classList.add('hidden');
         showToast('Đã lưu cài đặt');
+    }
+}
+
+function toggleProviderUI() {
+    if (selectAiProvider.value === 'gemini') {
+        groupGemini.classList.remove('hidden');
+        groupGroq.classList.add('hidden');
+    } else {
+        groupGemini.classList.add('hidden');
+        groupGroq.classList.remove('hidden');
     }
 }
 
@@ -126,7 +155,9 @@ function initSpeechRecognition() {
 }
 
 function startListening() {
-    if (!settings.geminiKey || !settings.gasUrl) {
+    if ((settings.aiProvider === 'gemini' && !settings.geminiKey) ||
+        (settings.aiProvider === 'groq' && !settings.groqKey) ||
+        !settings.gasUrl) {
         showToast('Vui lòng cấu hình API Key và Webhook URL trước.');
         settingsModal.classList.remove('hidden');
         return;
@@ -155,39 +186,77 @@ function toggleListening() {
     }
 }
 
-// Process Data with Gemini
+// Process Data with AI
 async function processVoiceCommand(text) {
+    if (settings.rawOnly) {
+        const url = settings.gasUrlRaw || settings.gasUrl;
+        await sendToGoogleSheets({ raw_text: text }, url);
+        return;
+    }
+
     statusTitle.textContent = 'Đang xử lý AI...';
 
     try {
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${settings.geminiKey}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                systemInstruction: {
-                    parts: [{ text: settings.systemPrompt }]
+        let response;
+        if (settings.aiProvider === 'groq') {
+            response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${settings.groqKey}`
                 },
-                contents: [{
-                    parts: [{ text: text }]
-                }],
-                generationConfig: {
-                    temperature: 0.1,
-                    responseMimeType: "application/json"
-                }
-            })
-        });
+                body: JSON.stringify({
+                    model: "llama-3.1-8b-instant",
+                    messages: [
+                        { role: "system", content: settings.systemPrompt },
+                        { role: "user", content: text }
+                    ],
+                    temperature: 0.1
+                })
+            });
+        } else {
+            response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${settings.geminiKey}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    systemInstruction: {
+                        parts: [{ text: settings.systemPrompt }]
+                    },
+                    contents: [{
+                        parts: [{ text: text }]
+                    }],
+                    generationConfig: {
+                        temperature: 0.1
+                    }
+                })
+            });
+        }
 
         if (!response.ok) {
             const err = await response.json();
-            throw new Error(err.error?.message || 'Lỗi từ Gemini API');
+            throw new Error(err.error?.message || 'Lỗi từ AI API');
         }
 
         const data = await response.json();
-        const jsonContent = data.candidates[0].content.parts[0].text;
-        const parsedData = JSON.parse(jsonContent);
+        let aiContent = '';
+        if (settings.aiProvider === 'groq') {
+            aiContent = data.choices[0].message.content;
+        } else {
+            aiContent = data.candidates[0].content.parts[0].text;
+        }
 
+        let parsedData;
+        try {
+            const cleanedContent = aiContent.replace(/```json\n?|```/g, '').trim();
+            parsedData = JSON.parse(cleanedContent);
+        } catch (e) {
+            // Not JSON, treat as raw text
+            parsedData = { raw_text: aiContent };
+        }
+
+        parsedData.raw_text = text;
         await sendToGoogleSheets(parsedData);
 
     } catch (error) {
@@ -196,27 +265,24 @@ async function processVoiceCommand(text) {
         showToast('AI lỗi/quá tải, tự động lưu nguyên văn bản.');
 
         // Fallback: Send raw text to sheet
-        await sendToGoogleSheets({ raw_text: text });
+        await sendToGoogleSheets({ raw_text: text }, settings.gasUrlRaw || settings.gasUrl);
     }
 }
 
 // Send to Google Sheets
-async function sendToGoogleSheets(data) {
+async function sendToGoogleSheets(data, url = settings.gasUrl) {
     statusTitle.textContent = 'Đang lưu vào Sheet...';
 
-    try {
-        // Google Apps Script requires no-cors for POST usually, or JSONP, but we can do a simple POST
-        // Make sure your GAS Web app is deployed to be accessible to "Anyone"
-        const response = await fetch(settings.gasUrl, {
-            method: 'POST',
-            mode: 'no-cors', // Because GAS doesn't return proper CORS headers for preflight easily without extra code
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(data)
-        });
+    const fetchOptions = {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    };
 
-        // with no-cors we can't read the response properly, but we assume success if no fetch error
+    try {
+        await fetch(url, fetchOptions);
+
         statusTitle.textContent = 'Hoàn tất!';
         showResult(data);
 
@@ -272,8 +338,12 @@ function setupEventListeners() {
     btnSaveSettings.addEventListener('click', () => saveSettings(false));
 
     // Auto-save settings to prevent cache loss
+    selectAiProvider.addEventListener('change', () => { toggleProviderUI(); saveSettings(true); });
     inputGeminiKey.addEventListener('input', () => saveSettings(true));
+    inputGroqKey.addEventListener('input', () => saveSettings(true));
     inputGasUrl.addEventListener('input', () => saveSettings(true));
+    inputGasUrlRaw.addEventListener('input', () => saveSettings(true));
+    inputRawOnly.addEventListener('change', () => saveSettings(true));
     inputSystemPrompt.addEventListener('input', () => saveSettings(true));
 
     // Text input events
@@ -299,7 +369,9 @@ function sendTextInput() {
         transcriptText.classList.add('active');
         textInput.value = '';
 
-        if (!settings.geminiKey || !settings.gasUrl) {
+        if ((settings.aiProvider === 'gemini' && !settings.geminiKey) ||
+            (settings.aiProvider === 'groq' && !settings.groqKey) ||
+            !settings.gasUrl) {
             showToast('Vui lòng cấu hình API Key và Webhook URL trước.');
             settingsModal.classList.remove('hidden');
             return;
