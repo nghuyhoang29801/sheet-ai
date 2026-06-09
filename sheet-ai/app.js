@@ -6,6 +6,9 @@ const btnSettings = document.getElementById('btnSettings');
 const btnCloseSettings = document.getElementById('btnCloseSettings');
 const settingsModal = document.getElementById('settingsModal');
 const btnSaveSettings = document.getElementById('btnSaveSettings');
+const btnDeleteProfile = document.getElementById('btnDeleteProfile');
+const btnAddProfile = document.getElementById('btnAddProfile');
+const profileList = document.getElementById('profileList');
 const toast = document.getElementById('toast');
 const toastMessage = document.getElementById('toastMessage');
 const resultCard = document.getElementById('resultCard');
@@ -20,59 +23,145 @@ const groupGroq = document.getElementById('groupGroq');
 const inputGeminiKey = document.getElementById('geminiKey');
 const inputGroqKey = document.getElementById('groqKey');
 const inputGasUrl = document.getElementById('gasUrl');
-const inputGasUrlRaw = document.getElementById('gasUrlRaw');
 const inputRawOnly = document.getElementById('rawOnly');
 const inputSystemPrompt = document.getElementById('systemPrompt');
+const inputProfileName = document.getElementById('profileName');
+
+// --- Profile Management ---
+const STORAGE_KEY = 'sheetAiProfiles';
+const ACTIVE_KEY = 'sheetAiActiveProfile';
+
+const DEFAULT_PROFILE = {
+    name: 'app-test',
+    aiProvider: 'groq',
+    geminiKey: '',
+    groqKey: '1',
+    gasUrl: 'https://script.google.com/macros/s/AKfycbzD9HF48vUdK4nTv9WjbPUHZwTmFAayBTCxJATGTdvELLHlkfbt5yxwRwfkRTn16RLW1A/exec',
+    rawOnly: true,
+    systemPrompt: 'Bạn là trợ lý ghi log.\nNhiệm vụ: Ghi lại thông tin mà tôi đọc\n chưa có định dạng'
+};
+
+function loadProfiles() {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (!saved) return [{ ...DEFAULT_PROFILE, id: 1 }];
+    const profiles = JSON.parse(saved);
+    // ensure every profile has a valid id
+    profiles.forEach((p, i) => { if (!p.id) p.id = Date.now() + i; });
+    return profiles;
+}
+
+function saveProfiles(profiles) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(profiles));
+}
+
+function getActiveId() {
+    const val = localStorage.getItem(ACTIVE_KEY);
+    return val ? Number(val) : null;
+}
+
+function setActiveId(id) {
+    localStorage.setItem(ACTIVE_KEY, String(id));
+}
+
+function getActiveProfile() {
+    const profiles = loadProfiles();
+    const id = getActiveId();
+    return profiles.find(p => p.id === id) || profiles[0];
+}
 
 // State
 let isListening = false;
 let recognition = null;
-let settings = {
-    aiProvider: 'gemini',
-    geminiKey: '',
-    groqKey: '',
-    gasUrl: '',
-    gasUrlRaw: '',
-    rawOnly: false,
-    systemPrompt: 'Bạn là trợ lý ghi log.\nNhiệm vụ: Ghi lại thông tin mà tôi đọc\n chưa có định dạng'
-};
+let isLoadingProfile = false;
 
 // Initialize
 function init() {
-    loadSettings();
+    let profiles = loadProfiles();
+    if (!getActiveId()) setActiveId(profiles[0].id);
+    renderProfileList();
+    loadProfileToForm(getActiveProfile());
     initSpeechRecognition();
     setupEventListeners();
 }
 
-function loadSettings() {
-    const saved = localStorage.getItem('sheetAiSettings');
-    if (saved) {
-        settings = { ...settings, ...JSON.parse(saved) };
-    }
-    selectAiProvider.value = settings.aiProvider || 'gemini';
-    inputGeminiKey.value = settings.geminiKey || '';
-    inputGroqKey.value = settings.groqKey || '';
-    inputGasUrl.value = settings.gasUrl || '';
-    inputGasUrlRaw.value = settings.gasUrlRaw || '';
-    inputRawOnly.checked = settings.rawOnly || false;
-    inputSystemPrompt.value = settings.systemPrompt || '';
-    toggleProviderUI();
+function renderProfileList() {
+    const profiles = loadProfiles();
+    const activeId = getActiveId();
+    profileList.innerHTML = profiles.map(p => `
+        <button class="profile-chip ${String(p.id) === String(activeId) ? 'active' : ''}" data-id="${p.id}">
+            ${p.name || 'Untitled'}
+        </button>
+    `).join('');
+
+    profileList.querySelectorAll('.profile-chip').forEach(btn => {
+        btn.addEventListener('click', () => {
+            setActiveId(Number(btn.dataset.id));
+            renderProfileList();
+            loadProfileToForm(getActiveProfile());
+        });
+    });
 }
 
-function saveSettings(silent = false) {
-    settings.aiProvider = selectAiProvider.value;
-    settings.geminiKey = inputGeminiKey.value.trim();
-    settings.groqKey = inputGroqKey.value.trim();
-    settings.gasUrl = inputGasUrl.value.trim();
-    settings.gasUrlRaw = inputGasUrlRaw.value.trim();
-    settings.rawOnly = inputRawOnly.checked;
-    settings.systemPrompt = inputSystemPrompt.value.trim();
-    localStorage.setItem('sheetAiSettings', JSON.stringify(settings));
+function loadProfileToForm(profile) {
+    isLoadingProfile = true;
+    inputProfileName.value = profile.name || '';
+    selectAiProvider.value = profile.aiProvider || 'gemini';
+    inputGeminiKey.value = profile.geminiKey || '';
+    inputGroqKey.value = profile.groqKey || '';
+    inputGasUrl.value = profile.gasUrl || '';
+    inputRawOnly.checked = profile.rawOnly || false;
+    inputSystemPrompt.value = profile.systemPrompt || '';
+    toggleProviderUI();
+    isLoadingProfile = false;
+}
 
-    if (silent !== true) {
+function saveCurrentProfile(silent = false) {
+    if (isLoadingProfile) return;
+    const profiles = loadProfiles();
+    const activeId = getActiveId();
+    const idx = profiles.findIndex(p => p.id === activeId);
+    if (idx === -1) return;
+
+    profiles[idx] = {
+        ...profiles[idx],
+        name: inputProfileName.value.trim() || 'Untitled',
+        aiProvider: selectAiProvider.value,
+        geminiKey: inputGeminiKey.value.trim(),
+        groqKey: inputGroqKey.value.trim(),
+        gasUrl: inputGasUrl.value.trim(),
+        rawOnly: inputRawOnly.checked,
+        systemPrompt: inputSystemPrompt.value.trim()
+    };
+
+    saveProfiles(profiles);
+    renderProfileList();
+
+    if (!silent) {
         settingsModal.classList.add('hidden');
         showToast('Đã lưu cài đặt');
     }
+}
+
+function addNewProfile() {
+    const profiles = loadProfiles();
+    const newProfile = { ...DEFAULT_PROFILE, id: Date.now(), name: `Profile ${profiles.length + 1}` };
+    profiles.push(newProfile);
+    saveProfiles(profiles);
+    setActiveId(newProfile.id);
+    renderProfileList();
+    loadProfileToForm(newProfile);
+}
+
+function deleteCurrentProfile() {
+    let profiles = loadProfiles();
+    if (profiles.length === 1) { showToast('Cần ít nhất 1 profile'); return; }
+    const activeId = getActiveId();
+    profiles = profiles.filter(p => p.id !== activeId);
+    saveProfiles(profiles);
+    setActiveId(profiles[0].id);
+    renderProfileList();
+    loadProfileToForm(profiles[0]);
+    showToast('Đã xoá profile');
 }
 
 function toggleProviderUI() {
@@ -88,16 +177,14 @@ function toggleProviderUI() {
 function showToast(msg) {
     toastMessage.textContent = msg;
     toast.classList.remove('hidden');
-    setTimeout(() => {
-        toast.classList.add('hidden');
-    }, 3000);
+    setTimeout(() => toast.classList.add('hidden'), 3000);
 }
 
-// Speech Recognition Setup
+// Speech Recognition
 function initSpeechRecognition() {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
-        showToast('Trình duyệt của bạn không hỗ trợ nhận diện giọng nói. Vui lòng dùng Chrome/Safari.');
+        showToast('Trình duyệt không hỗ trợ nhận diện giọng nói. Dùng Chrome/Safari.');
         btnMic.disabled = true;
         return;
     }
@@ -117,36 +204,27 @@ function initSpeechRecognition() {
     };
 
     recognition.onresult = (event) => {
-        let interimTranscript = '';
-        let finalTranscript = '';
-
+        let interim = '', final = '';
         for (let i = event.resultIndex; i < event.results.length; ++i) {
-            if (event.results[i].isFinal) {
-                finalTranscript += event.results[i][0].transcript;
-            } else {
-                interimTranscript += event.results[i][0].transcript;
-            }
+            if (event.results[i].isFinal) final += event.results[i][0].transcript;
+            else interim += event.results[i][0].transcript;
         }
-
-        transcriptText.textContent = finalTranscript || interimTranscript;
+        transcriptText.textContent = final || interim;
     };
 
     recognition.onerror = (event) => {
-        console.error('Speech recognition error', event.error);
+        console.error('Speech error', event.error);
         stopListening();
         statusTitle.textContent = 'Lỗi nhận diện';
-        if (event.error === 'not-allowed') {
-            showToast('Vui lòng cấp quyền sử dụng microphone.');
-        }
+        if (event.error === 'not-allowed') showToast('Vui lòng cấp quyền sử dụng microphone.');
     };
 
     recognition.onend = () => {
         if (isListening) {
             stopListening();
-            const text = transcriptText.textContent;
-            if (text.trim().length > 0) {
-                processVoiceCommand(text);
-            } else {
+            const text = transcriptText.textContent.trim();
+            if (text.length > 0) processInput(text);
+            else {
                 statusTitle.textContent = 'Không nghe rõ';
                 setTimeout(() => { statusTitle.textContent = 'Chạm để nói'; }, 2000);
             }
@@ -155,42 +233,33 @@ function initSpeechRecognition() {
 }
 
 function startListening() {
-    if ((settings.aiProvider === 'gemini' && !settings.geminiKey) ||
-        (settings.aiProvider === 'groq' && !settings.groqKey) ||
-        !settings.gasUrl) {
-        showToast('Vui lòng cấu hình API Key và Webhook URL trước.');
+    const profile = getActiveProfile();
+    if ((!profile.rawOnly && !profile.geminiKey && profile.aiProvider === 'gemini') ||
+        (!profile.rawOnly && !profile.groqKey && profile.aiProvider === 'groq') ||
+        !profile.gasUrl) {
+        showToast('Vui lòng cấu hình API Key và GAS URL trước.');
         settingsModal.classList.remove('hidden');
         return;
     }
-
-    try {
-        recognition.start();
-    } catch (e) {
-        // Recognition already started
-    }
+    try { recognition.start(); } catch (e) { }
 }
 
 function stopListening() {
     isListening = false;
     btnMic.classList.remove('listening');
-    try {
-        recognition.stop();
-    } catch (e) { }
+    try { recognition.stop(); } catch (e) { }
 }
 
 function toggleListening() {
-    if (isListening) {
-        stopListening();
-    } else {
-        startListening();
-    }
+    isListening ? stopListening() : startListening();
 }
 
-// Process Data with AI
-async function processVoiceCommand(text) {
-    if (settings.rawOnly) {
-        const url = settings.gasUrlRaw || settings.gasUrl;
-        await sendToGoogleSheets({ raw_text: text }, url);
+// Process
+async function processInput(text) {
+    const profile = getActiveProfile();
+
+    if (profile.rawOnly) {
+        await sendToGoogleSheets({ raw_text: text }, profile.gasUrl);
         return;
     }
 
@@ -198,98 +267,67 @@ async function processVoiceCommand(text) {
 
     try {
         let response;
-        if (settings.aiProvider === 'groq') {
+        if (profile.aiProvider === 'groq') {
             response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${settings.groqKey}`
-                },
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${profile.groqKey}` },
                 body: JSON.stringify({
-                    model: "llama-3.1-8b-instant",
-                    messages: [
-                        { role: "system", content: settings.systemPrompt },
-                        { role: "user", content: text }
-                    ],
+                    model: 'llama-3.1-8b-instant',
+                    messages: [{ role: 'system', content: profile.systemPrompt }, { role: 'user', content: text }],
                     temperature: 0.1
                 })
             });
         } else {
-            response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${settings.geminiKey}`, {
+            response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${profile.geminiKey}`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    systemInstruction: {
-                        parts: [{ text: settings.systemPrompt }]
-                    },
-                    contents: [{
-                        parts: [{ text: text }]
-                    }],
-                    generationConfig: {
-                        temperature: 0.1
-                    }
+                    systemInstruction: { parts: [{ text: profile.systemPrompt }] },
+                    contents: [{ parts: [{ text }] }],
+                    generationConfig: { temperature: 0.1 }
                 })
             });
         }
 
         if (!response.ok) {
             const err = await response.json();
-            throw new Error(err.error?.message || 'Lỗi từ AI API');
+            throw new Error(err.error?.message || 'Lỗi AI API');
         }
 
         const data = await response.json();
-        let aiContent = '';
-        if (settings.aiProvider === 'groq') {
-            aiContent = data.choices[0].message.content;
-        } else {
-            aiContent = data.candidates[0].content.parts[0].text;
-        }
+        const aiContent = profile.aiProvider === 'groq'
+            ? data.choices[0].message.content
+            : data.candidates[0].content.parts[0].text;
 
-        let parsedData;
+        let parsed;
         try {
-            const cleanedContent = aiContent.replace(/```json\n?|```/g, '').trim();
-            parsedData = JSON.parse(cleanedContent);
+            parsed = JSON.parse(aiContent.replace(/```json\n?|```/g, '').trim());
         } catch (e) {
-            // Not JSON, treat as raw text
-            parsedData = { raw_text: aiContent };
+            parsed = { raw_text: aiContent };
         }
-
-        parsedData.raw_text = text;
-        await sendToGoogleSheets(parsedData);
+        parsed.raw_text = text;
+        await sendToGoogleSheets(parsed, profile.gasUrl);
 
     } catch (error) {
         console.error(error);
-        statusTitle.textContent = 'AI lỗi, đang lưu thô...';
+        statusTitle.textContent = 'AI lỗi, lưu thô...';
         showToast('AI lỗi/quá tải, tự động lưu nguyên văn bản.');
-
-        // Fallback: Send raw text to sheet
-        await sendToGoogleSheets({ raw_text: text }, settings.gasUrlRaw || settings.gasUrl);
+        await sendToGoogleSheets({ raw_text: text }, profile.gasUrl);
     }
 }
 
-// Send to Google Sheets
-async function sendToGoogleSheets(data, url = settings.gasUrl) {
+async function sendToGoogleSheets(data, url) {
     statusTitle.textContent = 'Đang lưu vào Sheet...';
-
-    const fetchOptions = {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-    };
-
     try {
-        await fetch(url, fetchOptions);
-
+        await fetch(url, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
         statusTitle.textContent = 'Hoàn tất!';
         showResult(data);
-
-        setTimeout(() => {
-            if (!isListening) statusTitle.textContent = 'Chạm để nói';
-        }, 3000);
-
+        setTimeout(() => { if (!isListening) statusTitle.textContent = 'Chạm để nói'; }, 3000);
     } catch (error) {
         console.error(error);
         statusTitle.textContent = 'Lỗi lưu dữ liệu';
@@ -298,87 +336,59 @@ async function sendToGoogleSheets(data, url = settings.gasUrl) {
 }
 
 function showResult(data) {
-    resultData.innerHTML = '';
-
-    for (const [key, value] of Object.entries(data)) {
-        // Simple translation for common keys
-        const labels = {
-            'food': 'Món ăn',
-            'total_amount': 'Tổng tiền',
-            'people_count': 'Số người',
-            'raw_text': 'Nội dung thô',
-            'date': 'Ngày',
-            'amount': 'Số tiền',
-            'category': 'Danh mục',
-            'note': 'Ghi chú'
-        };
+    const labels = { food: 'Món ăn', total_amount: 'Tổng tiền', people_count: 'Số người', raw_text: 'Nội dung thô', date: 'Ngày', amount: 'Số tiền', category: 'Danh mục', note: 'Ghi chú' };
+    resultData.innerHTML = Object.entries(data).map(([key, value]) => {
         const label = labels[key] || key;
-
-        let displayValue = value;
-        if ((key === 'amount' || key === 'total_amount') && !isNaN(value) && value !== null) {
-            displayValue = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
-        }
-
-        resultData.innerHTML += `
-            <div class="data-row">
-                <span class="data-label">${label}</span>
-                <span class="data-value">${displayValue}</span>
-            </div>
-        `;
-    }
-
+        const displayValue = (key === 'amount' || key === 'total_amount') && !isNaN(value) && value !== null
+            ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value)
+            : value;
+        return `<div class="data-row"><span class="data-label">${label}</span><span class="data-value">${displayValue}</span></div>`;
+    }).join('');
     resultCard.classList.remove('hidden');
 }
 
 // Event Listeners
 function setupEventListeners() {
     btnMic.addEventListener('click', toggleListening);
-    btnSettings.addEventListener('click', () => settingsModal.classList.remove('hidden'));
-    btnCloseSettings.addEventListener('click', () => settingsModal.classList.add('hidden'));
-    btnSaveSettings.addEventListener('click', () => saveSettings(false));
-
-    // Auto-save settings to prevent cache loss
-    selectAiProvider.addEventListener('change', () => { toggleProviderUI(); saveSettings(true); });
-    inputGeminiKey.addEventListener('input', () => saveSettings(true));
-    inputGroqKey.addEventListener('input', () => saveSettings(true));
-    inputGasUrl.addEventListener('input', () => saveSettings(true));
-    inputGasUrlRaw.addEventListener('input', () => saveSettings(true));
-    inputRawOnly.addEventListener('change', () => saveSettings(true));
-    inputSystemPrompt.addEventListener('input', () => saveSettings(true));
-
-    // Text input events
-    btnSendText.addEventListener('click', sendTextInput);
-    textInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-            sendTextInput();
-        }
+    btnSettings.addEventListener('click', () => {
+        renderProfileList();
+        loadProfileToForm(getActiveProfile());
+        settingsModal.classList.remove('hidden');
     });
+    btnCloseSettings.addEventListener('click', () => settingsModal.classList.add('hidden'));
+    btnSaveSettings.addEventListener('click', () => saveCurrentProfile(false));
+    btnDeleteProfile.addEventListener('click', deleteCurrentProfile);
+    btnAddProfile.addEventListener('click', addNewProfile);
 
-    // Close modal on outside click
+    selectAiProvider.addEventListener('change', () => { toggleProviderUI(); saveCurrentProfile(true); });
+    [inputProfileName, inputGeminiKey, inputGroqKey, inputGasUrl, inputSystemPrompt].forEach(el =>
+        el.addEventListener('input', () => saveCurrentProfile(true))
+    );
+    inputRawOnly.addEventListener('change', () => saveCurrentProfile(true));
+
+    btnSendText.addEventListener('click', sendTextInput);
+    textInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendTextInput(); });
+
     settingsModal.addEventListener('click', (e) => {
-        if (e.target === settingsModal) {
-            settingsModal.classList.add('hidden');
-        }
+        if (e.target === settingsModal) settingsModal.classList.add('hidden');
     });
 }
 
 function sendTextInput() {
     const text = textInput.value.trim();
-    if (text) {
-        transcriptText.textContent = text;
-        transcriptText.classList.add('active');
-        textInput.value = '';
-
-        if ((settings.aiProvider === 'gemini' && !settings.geminiKey) ||
-            (settings.aiProvider === 'groq' && !settings.groqKey) ||
-            !settings.gasUrl) {
-            showToast('Vui lòng cấu hình API Key và Webhook URL trước.');
-            settingsModal.classList.remove('hidden');
-            return;
-        }
-        processVoiceCommand(text);
+    if (!text) return;
+    const profile = getActiveProfile();
+    transcriptText.textContent = text;
+    transcriptText.classList.add('active');
+    textInput.value = '';
+    if ((!profile.rawOnly && !profile.geminiKey && profile.aiProvider === 'gemini') ||
+        (!profile.rawOnly && !profile.groqKey && profile.aiProvider === 'groq') ||
+        !profile.gasUrl) {
+        showToast('Vui lòng cấu hình API Key và GAS URL trước.');
+        settingsModal.classList.remove('hidden');
+        return;
     }
+    processInput(text);
 }
 
-// Run
 document.addEventListener('DOMContentLoaded', init);
